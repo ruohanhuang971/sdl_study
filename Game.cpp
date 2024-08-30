@@ -29,7 +29,18 @@ bool Game::Initialize() {
         return false;
     }
 
-    // both init and window create successful
+    // create render after window created
+    mRenderer = SDL_CreateRenderer(
+        mWindow,                                               // Window to create renderer for
+        -1,                                                    // specifies which graphics driver to use; -1 only a single window [let SDL decide]
+        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC); // initialization flags
+
+    if (!mRenderer) {
+        SDL_Log("Failed to create renderer: %s", SDL_GetError());
+        return false;
+    }
+
+    // both init/window/render create successful
     return true;
 }
 
@@ -43,8 +54,9 @@ void Game::RunLoop() {
 }
 
 void Game::Shutdown() {
-    SDL_DestroyWindow(mWindow); // destory window
-    SDL_Quit();                 // closes SDL
+    SDL_DestroyRenderer(mRenderer); // destory renderer
+    SDL_DestroyWindow(mWindow);     // destory window
+    SDL_Quit();                     // closes SDL
 }
 
 void Game::ProcessInput() {
@@ -71,4 +83,18 @@ void Game::UpdateGame() {
 }
 
 void Game::GenerateOutput() {
+    // clear back buffer to a color
+    SDL_SetRenderDrawColor( // specify a color
+        mRenderer,          // pointer to renderer
+        0,                  // R
+        0,                  // G
+        255,                // B
+        255                 // A
+    );
+    SDL_RenderClear(mRenderer); // clear the back buffer to the current draw color
+
+    // draw the entire game scene here
+
+    // swap the front and back buffers
+    SDL_RenderPresent(mRenderer);
 }
