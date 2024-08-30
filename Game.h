@@ -1,5 +1,10 @@
 #include <SDL2/SDL.h>
 
+struct Vector2 {
+    float x;
+    float y;
+};
+
 class Game {
 public:
     Game();
@@ -18,7 +23,12 @@ private:
     // Window created by SDL
     SDL_Window *mWindow;
     // draws graphics
-    SDL_Renderer* mRenderer;
+    SDL_Renderer *mRenderer;
     // Game should continue to run
     bool mIsRunning;
+    Vector2 mPaddlePos;
+    Vector2 mBallPos;
+    Vector2 mBallVel;
+    Uint32 mTicksCount;
+    int mPaddleDir;
 };
