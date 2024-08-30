@@ -1,5 +1,4 @@
 #include "Game.h"
-#include <cmath>
 
 const int thickness = 15;
 const float paddleH = 100.0f;
@@ -10,19 +9,32 @@ Game::Game() {
     mWindow = nullptr;
     mIsRunning = true;
     mTicksCount = 0;
+
     // paddle 1
     mPaddleDir1 = 0;
     mPaddlePos1.x = 10.0f;
     mPaddlePos1.y = windowHeight / 2.0f;
+
     // paddle2
     mPaddleDir2 = 0;
     mPaddlePos2.x = windowWidth - 10.0f;
     mPaddlePos2.y = windowHeight / 2.0f;
+
     // ball
-    mBallPos.x = windowWidth / 2.0f;
-    mBallPos.y = windowHeight / 2.0f;
-    mBallVel.x = -80.0f;
-    mBallVel.y = 83.0f;
+    srand(time(NULL));
+    float vecX, vecY;
+    for (int i = 0; i < numBalls; i++) {
+        // each ball start with the center with different velocity
+        vecX = rand() % 40 + 70;
+        vecY = rand() % 40 + 70;
+        if (rand() % 2 == 0) {
+            vecX *= -1;
+        }
+        if (rand() % 2 == 0) {
+            vecY *= -1;
+        }
+        balls.push_back({windowWidth / 2.0f, windowHeight / 2.0f, vecX, vecY});
+    }
 }
 
 bool Game::Initialize() {
@@ -152,43 +164,61 @@ void Game::UpdateGame() {
     }
 
     // Update ball
-    mBallPos.x += mBallVel.x * deltaTime;
-    mBallPos.y += mBallVel.y * deltaTime;
+    for (int i = 0; i < numBalls; i++) {
+        balls[i].Pos.x += balls[i].Vec.x * deltaTime;
+        balls[i].Pos.y += balls[i].Vec.y * deltaTime;
+    }
 
     // check for collision and update velocity
     // (prevent the ball from not moving far enough and constantly negating velocity and getting stuck)
-    if (mBallPos.y <= thickness && mBallVel.y < 0.0f) { // if collide with top wall && moving up
-        mBallVel.y *= -1;
-    } else if (mBallPos.y >= windowHeight - thickness && mBallVel.y > 0.0f) { // bottom wall
-        mBallVel.y *= -1;
+    for (int i = 0; i < numBalls; i++) {
+        if (balls[i].Pos.y <= thickness && balls[i].Vec.y < 0.0f) { // if collide with top wall && moving up
+            balls[i].Vec.y *= -1;
+        } else if (balls[i].Pos.y >= windowHeight - thickness && balls[i].Vec.y > 0.0f) { // bottom wall
+            balls[i].Vec.y *= -1;
+        }
     }
+    // DEBUGGING: force ball to stay on screen
+    // for (int i = 0; i < numBalls; i++) {
+    //     if (balls[i].Pos.x <= thickness && balls[i].Vec.x < 0.0f) { // if collide with top wall && moving up
+    //         balls[i].Vec.x *= -1;
+    //     } else if (balls[i].Pos.x >= windowWidth - thickness && balls[i].Vec.x > 0.0f) { // bottom wall
+    //         balls[i].Vec.x *= -1;
+    //     }
+    // }
 
     // collision with paddle1
-    float diff1 = std::abs(mBallPos.y - mPaddlePos1.y);
-    if (
-        // if absolute y distance from paddle is less than half the height of paddle
-        diff1 <= paddleH / 2.0f &&
-        // and ball is at the correct x-position
-        mBallPos.x <= 25.0f && mBallPos.x >= 20.0f &&
-        // and ball is moving to the left
-        mBallVel.x < 0.0f) {
-        mBallVel.x *= -1.0f;
+    for (int i = 0; i < numBalls; i++) {
+        float diff1 = std::abs(balls[i].Pos.y - mPaddlePos1.y);
+        if (
+            // if absolute y distance from paddle is less than half the height of paddle
+            diff1 <= paddleH / 2.0f &&
+            // and ball is at the correct x-position
+            balls[i].Pos.x <= 25.0f && balls[i].Pos.x >= 20.0f &&
+            // and ball is moving to the left
+            balls[i].Vec.x < 0.0f) {
+            balls[i].Vec.x *= -1.0f;
+        }
     }
     // collision with paddle2
-    float diff2 = std::abs(mBallPos.y - mPaddlePos2.y);
-    if (
-        // if absolute y distance from paddle is less than half the height of paddle
-        diff2 <= paddleH / 2.0f &&
-        // and ball is at the correct x-position
-        mBallPos.x >= (windowWidth - 25.0f) && mBallPos.x <= (windowWidth - 20.0f) &&
-        // and ball is moving to the right
-        mBallVel.x > 0.0f) {
-        mBallVel.x *= -1.0f;
+    for (int i = 0; i < numBalls; i++) {
+        float diff2 = std::abs(balls[i].Pos.y - mPaddlePos2.y);
+        if (
+            // if absolute y distance from paddle is less than half the height of paddle
+            diff2 <= paddleH / 2.0f &&
+            // and ball is at the correct x-position
+            balls[i].Pos.x >= (windowWidth - 25.0f) && balls[i].Pos.x <= (windowWidth - 20.0f) &&
+            // and ball is moving to the right
+            balls[i].Vec.x > 0.0f) {
+            balls[i].Vec.x *= -1.0f;
+        }
     }
 
-    // end game if offscreen
-    if ((mBallPos.x - thickness / 2) < 0 || (mBallPos.x + thickness / 2) > windowWidth) {
-        mIsRunning = false;
+    // // end game if offscreen
+    for (int i = 0; i < numBalls; i++) {
+        if ((balls[i].Pos.x - thickness / 2) < 0 || (balls[i].Pos.x + thickness / 2) > windowWidth) {
+            mIsRunning = false;
+        }
     }
 }
 
@@ -244,12 +274,14 @@ void Game::GenerateOutput() {
         static_cast<int>(paddleH)};
     SDL_RenderFillRect(mRenderer, &paddle2); // draw paddle1
     // draw ball
-    SDL_Rect ball{
-        static_cast<int>(mBallPos.x - thickness / 2),
-        static_cast<int>(mBallPos.y - thickness / 2),
-        thickness,
-        thickness};
-    SDL_RenderFillRect(mRenderer, &ball); // draw ball
+    for (int i = 0; i < numBalls; i++) {
+        SDL_Rect ball{
+            static_cast<int>(balls[i].Pos.x - thickness / 2),
+            static_cast<int>(balls[i].Pos.y - thickness / 2),
+            thickness,
+            thickness};
+        SDL_RenderFillRect(mRenderer, &ball); // draw ball
+    }
 
     // swap the front and back buffers
     SDL_RenderPresent(mRenderer);

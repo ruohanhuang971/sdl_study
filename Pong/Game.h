@@ -1,8 +1,18 @@
 #include <SDL2/SDL.h>
+#include <cmath>
+#include <vector>
+#include <stdio.h> 
+#include <stdlib.h>
+#include <time.h>
 
 struct Vector2 {
     float x;
     float y;
+};
+
+struct Ball {
+    Vector2 Pos;
+    Vector2 Vec;
 };
 
 class Game {
@@ -26,11 +36,15 @@ private:
     SDL_Renderer *mRenderer;
     // Game should continue to run
     bool mIsRunning;
+    Uint32 mTicksCount;
+    
+    //paddles
     Vector2 mPaddlePos1;
     int mPaddleDir1;
     Vector2 mPaddlePos2;
     int mPaddleDir2;
-    Vector2 mBallPos;
-    Vector2 mBallVel;
-    Uint32 mTicksCount;
+
+    //balls
+    const int numBalls = 2;
+    std::vector<Ball> balls;
 };
