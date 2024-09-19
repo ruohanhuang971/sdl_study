@@ -1,7 +1,7 @@
 #include "Game.h"
+#include "SDL/SDL_image.h"
+#include <algorithm>
 
-const int thickness = 15;
-const float paddleH = 100.0f;
 const float windowWidth = 1024;
 const float windowHeight = 700;
 
@@ -9,32 +9,6 @@ Game::Game() {
     mWindow = nullptr;
     mIsRunning = true;
     mTicksCount = 0;
-
-    // paddle 1
-    mPaddleDir1 = 0;
-    mPaddlePos1.x = 10.0f;
-    mPaddlePos1.y = windowHeight / 2.0f;
-
-    // paddle2
-    mPaddleDir2 = 0;
-    mPaddlePos2.x = windowWidth - 10.0f;
-    mPaddlePos2.y = windowHeight / 2.0f;
-
-    // ball
-    srand(time(NULL));
-    float vecX, vecY;
-    for (int i = 0; i < numBalls; i++) {
-        // each ball start with the center with different velocity
-        vecX = rand() % 40 + 70;
-        vecY = rand() % 40 + 70;
-        if (rand() % 2 == 0) {
-            vecX *= -1;
-        }
-        if (rand() % 2 == 0) {
-            vecY *= -1;
-        }
-        balls.push_back({windowWidth / 2.0f, windowHeight / 2.0f, vecX, vecY});
-    }
 }
 
 bool Game::Initialize() {
@@ -48,7 +22,7 @@ bool Game::Initialize() {
 
     // create window
     mWindow = SDL_CreateWindow(
-        "Game Programming in C++ (Chapter 1)", // Window title
+        "Game Programming in C++ (Chapter 2)", // Window title
         100,                                   // Top left x-coordinate of window
         25,                                    // Top left y-coordinate of window
         windowWidth,                           // Width of window
@@ -72,7 +46,13 @@ bool Game::Initialize() {
         return false;
     }
 
-    // both init/window/render create successful
+    if (IMG_Init(IMG_INIT_PNG) == 0) {
+        SDL_Log("Unable to initialize SDL_image: %s", SDL_GetError());
+        return false;
+    }
+
+    LoadData();
+
     return true;
 }
 
@@ -130,95 +110,36 @@ void Game::ProcessInput() {
 }
 
 void Game::UpdateGame() {
-    // Wait until 16ms has elapsed since last frame
-    while (!SDL_TICKS_PASSED(SDL_GetTicks(), mTicksCount + 16))
-        ;
-    // Delta time is the difference in ticks from last frame
-    // (converted to seconds)
+    // Compute delta time
     float deltaTime = (SDL_GetTicks() - mTicksCount) / 1000.0f;
     // Clamp maximum delta time value (never jump ahead too far)
     if (deltaTime > 0.05f) {
         deltaTime = 0.05f;
     }
 
-    // Update paddle1
-    if (mPaddleDir1 != 0) {
-        mPaddlePos1.y += mPaddleDir1 * 200.0f * deltaTime; // 200 pixels/second
-        // keep within screen bounds
-        if (mPaddlePos1.y < (paddleH / 2.0f + thickness)) {
-            mPaddlePos1.y = paddleH / 2.0f + thickness;
-        } else if (mPaddlePos1.y > (windowHeight - paddleH / 2.0f - thickness)) {
-            mPaddlePos1.y = windowHeight - paddleH / 2.0f - thickness;
-        }
+    // Update all actors
+    mUpdatingActors = true;
+    for (auto actor : mActors) {
+        actor->Update(deltaTime);
     }
 
-    // Update paddle2
-    if (mPaddleDir2 != 0) {
-        mPaddlePos2.y += mPaddleDir2 * 200.0f * deltaTime; // 200 pixels/second
-        // keep within screen bounds
-        if (mPaddlePos2.y < (paddleH / 2.0f + thickness)) {
-            mPaddlePos2.y = paddleH / 2.0f + thickness;
-        } else if (mPaddlePos2.y > (windowHeight - paddleH / 2.0f - thickness)) {
-            mPaddlePos2.y = windowHeight - paddleH / 2.0f - thickness;
-        }
+    mUpdatingActors = false;
+    // Move any pending actors to mActors
+    for (auto pending : mPendingActors) {
+        mActors.emplace_back(pending);
     }
+    mPendingActors.clear();
 
-    // Update ball
-    for (int i = 0; i < numBalls; i++) {
-        balls[i].Pos.x += balls[i].Vec.x * deltaTime;
-        balls[i].Pos.y += balls[i].Vec.y * deltaTime;
-    }
-
-    // check for collision and update velocity
-    // (prevent the ball from not moving far enough and constantly negating velocity and getting stuck)
-    for (int i = 0; i < numBalls; i++) {
-        if (balls[i].Pos.y <= thickness && balls[i].Vec.y < 0.0f) { // if collide with top wall && moving up
-            balls[i].Vec.y *= -1;
-        } else if (balls[i].Pos.y >= windowHeight - thickness && balls[i].Vec.y > 0.0f) { // bottom wall
-            balls[i].Vec.y *= -1;
+    // Add any dead actors to a temp vector
+    std::vector<Actor *> deadActors;
+    for (auto actor : mActors) {
+        if (actor->GetState() == Actor::EDead) {
+            deadActors.emplace_back(actor);
         }
     }
-    // DEBUGGING: force ball to stay on screen
-    // for (int i = 0; i < numBalls; i++) {
-    //     if (balls[i].Pos.x <= thickness && balls[i].Vec.x < 0.0f) { // if collide with top wall && moving up
-    //         balls[i].Vec.x *= -1;
-    //     } else if (balls[i].Pos.x >= windowWidth - thickness && balls[i].Vec.x > 0.0f) { // bottom wall
-    //         balls[i].Vec.x *= -1;
-    //     }
-    // }
-
-    // collision with paddle1
-    for (int i = 0; i < numBalls; i++) {
-        float diff1 = std::abs(balls[i].Pos.y - mPaddlePos1.y);
-        if (
-            // if absolute y distance from paddle is less than half the height of paddle
-            diff1 <= paddleH / 2.0f &&
-            // and ball is at the correct x-position
-            balls[i].Pos.x <= 25.0f && balls[i].Pos.x >= 20.0f &&
-            // and ball is moving to the left
-            balls[i].Vec.x < 0.0f) {
-            balls[i].Vec.x *= -1.0f;
-        }
-    }
-    // collision with paddle2
-    for (int i = 0; i < numBalls; i++) {
-        float diff2 = std::abs(balls[i].Pos.y - mPaddlePos2.y);
-        if (
-            // if absolute y distance from paddle is less than half the height of paddle
-            diff2 <= paddleH / 2.0f &&
-            // and ball is at the correct x-position
-            balls[i].Pos.x >= (windowWidth - 25.0f) && balls[i].Pos.x <= (windowWidth - 20.0f) &&
-            // and ball is moving to the right
-            balls[i].Vec.x > 0.0f) {
-            balls[i].Vec.x *= -1.0f;
-        }
-    }
-
-    // // end game if offscreen
-    for (int i = 0; i < numBalls; i++) {
-        if ((balls[i].Pos.x - thickness / 2) < 0 || (balls[i].Pos.x + thickness / 2) > windowWidth) {
-            mIsRunning = false;
-        }
+    // Delete dead actors (which removes them from mActors)
+    for (auto actor : deadActors) {
+        delete actor;
     }
 }
 
@@ -285,4 +206,46 @@ void Game::GenerateOutput() {
 
     // swap the front and back buffers
     SDL_RenderPresent(mRenderer);
+}
+
+void Game::AddActor(Actor *actor) {
+    // If updating actors, need to add to pending
+    if (mUpdatingActors) {
+        mPendingActors.emplace_back(actor);
+    } else {
+        mActors.emplace_back(actor);
+    }
+}
+
+void Game::RemoveActor(Actor *actor) {
+    // search in updating actors
+    auto pos = std::find(mActors.begin(), mActors.end(), actor);
+    if (pos != mActors.end()) {
+        mActors.erase(pos);
+    } else {
+        pos = std::find(mPendingActors.begin(), mPendingActors.end(), actor);
+        mPendingActors.erase(pos);
+    }
+}
+
+SDL_Texture *Game::LoadTexture(const char *fileName) {
+    // Load from file
+    SDL_Surface *surf = IMG_Load(fileName);
+    if (!surf) {
+        SDL_Log("Failed to load texture file %s", fileName);
+        return nullptr;
+    }
+    // Create texture from surface
+    SDL_Texture *text = SDL_CreateTextureFromSurface(mRenderer, surf);
+    SDL_FreeSurface(surf);
+    if (!text) {
+        SDL_Log("Failed to convert surface to texture for %s", fileName);
+        return nullptr;
+    }
+    return text;
+}
+
+
+SDL_Texture *Game::GetTexture(const char *fileName) {
+    
 }
