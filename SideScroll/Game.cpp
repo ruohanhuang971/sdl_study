@@ -84,7 +84,7 @@ void Game::ProcessInput() {
     }
 
     // Get state of keyboard
-    const Uint8 *state = SDL_GetKeyboardState(NULL);
+    const Uint8* state = SDL_GetKeyboardState(NULL);
     // If escape is pressed, also stop program
     if (state[SDL_SCANCODE_ESCAPE]) {
         mIsRunning = false;
@@ -131,7 +131,7 @@ void Game::UpdateGame() {
     mPendingActors.clear();
 
     // Add any dead actors to a temp vector
-    std::vector<Actor *> deadActors;
+    std::vector<Actor*> deadActors;
     for (auto actor : mActors) {
         if (actor->GetState() == Actor::EDead) {
             deadActors.emplace_back(actor);
@@ -154,61 +154,15 @@ void Game::GenerateOutput() {
     );
     SDL_RenderClear(mRenderer); // clear the back buffer to the current draw color
 
-    // draw the entire game scene
-    SDL_SetRenderDrawColor(mRenderer, 255, 255, 255, 255); // set draw color to white
-    // specify bounds of the rectangle for top wall
-    SDL_Rect mid{
-        static_cast<int>(windowWidth) / 2 - 2, // Top left x
-        0,                                     // Top left y
-        4,                                     // Width
-        static_cast<int>(windowWidth)          // Height
-    };
-    SDL_RenderFillRect(mRenderer, &mid); // draw top wall
-    // specify bounds of the rectangle for top wall
-    SDL_Rect wallTop{
-        0,                             // Top left x
-        0,                             // Top left y
-        static_cast<int>(windowWidth), // Width
-        thickness                      // Height
-    };
-    SDL_RenderFillRect(mRenderer, &wallTop); // draw top wall
-    // specify bounds of the rectangle for bottom wall
-    SDL_Rect wallBot{
-        0,                                          // Top left x
-        static_cast<int>(windowHeight) - thickness, // Top left y
-        static_cast<int>(windowWidth),              // Width
-        thickness                                   // Height
-    };
-    SDL_RenderFillRect(mRenderer, &wallBot); // draw bottom wall
-    // draw paddle1
-    SDL_Rect paddle1{
-        static_cast<int>(mPaddlePos1.x - thickness / 2),
-        static_cast<int>(mPaddlePos1.y - paddleH / 2),
-        thickness,
-        static_cast<int>(paddleH)};
-    SDL_RenderFillRect(mRenderer, &paddle1); // draw paddle1
-    // draw paddle2
-    SDL_Rect paddle2{
-        static_cast<int>(mPaddlePos2.x - thickness / 2),
-        static_cast<int>(mPaddlePos2.y - paddleH / 2),
-        thickness,
-        static_cast<int>(paddleH)};
-    SDL_RenderFillRect(mRenderer, &paddle2); // draw paddle1
-    // draw ball
-    for (int i = 0; i < numBalls; i++) {
-        SDL_Rect ball{
-            static_cast<int>(balls[i].Pos.x - thickness / 2),
-            static_cast<int>(balls[i].Pos.y - thickness / 2),
-            thickness,
-            thickness};
-        SDL_RenderFillRect(mRenderer, &ball); // draw ball
+    for (auto& i : mSprites) {
+        i.Draw(mRenderer);
     }
-
+   
     // swap the front and back buffers
     SDL_RenderPresent(mRenderer);
 }
 
-void Game::AddActor(Actor *actor) {
+void Game::AddActor(Actor* actor) {
     // If updating actors, need to add to pending
     if (mUpdatingActors) {
         mPendingActors.emplace_back(actor);
@@ -217,7 +171,7 @@ void Game::AddActor(Actor *actor) {
     }
 }
 
-void Game::RemoveActor(Actor *actor) {
+void Game::RemoveActor(Actor* actor) {
     // search in updating actors
     auto pos = std::find(mActors.begin(), mActors.end(), actor);
     if (pos != mActors.end()) {
@@ -228,24 +182,41 @@ void Game::RemoveActor(Actor *actor) {
     }
 }
 
-SDL_Texture *Game::LoadTexture(const char *fileName) {
-    // Load from file
-    SDL_Surface *surf = IMG_Load(fileName);
+SDL_Texture* Game::GetTexture(const char* fileName) {
+    auto pos = mTextures.find(fileName);
+    if (pos != mTextures.end()) { // if found
+        return pos->second;
+    }
+
+    // if not found load from file
+    SDL_Surface* surf = IMG_Load(fileName);
     if (!surf) {
         SDL_Log("Failed to load texture file %s", fileName);
         return nullptr;
     }
     // Create texture from surface
-    SDL_Texture *text = SDL_CreateTextureFromSurface(mRenderer, surf);
+    SDL_Texture* text = SDL_CreateTextureFromSurface(mRenderer, surf);
     SDL_FreeSurface(surf);
     if (!text) {
         SDL_Log("Failed to convert surface to texture for %s", fileName);
         return nullptr;
     }
+
+    mTextures.emplace(fileName, text);
+
     return text;
 }
 
-
-SDL_Texture *Game::GetTexture(const char *fileName) {
-    
+void Game::AddSprite(SpriteComponent* sprite) {
+    // Find the insertion point in the sorted vector
+    // (The first element with a higher draw order than me)
+    int myDrawOrder = sprite->GetDrawOrder();
+    auto iter = mSprites.begin();
+    for (; iter != mSprites.end(); ++iter) {
+        if (myDrawOrder < (*iter)->GetDrawOrder()) {
+            break;
+        }
+    }
+    // Inserts element before position of iterator
+    mSprites.insert(iter, sprite);
 }

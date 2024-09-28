@@ -14,7 +14,7 @@ public:
         EDead
     };
     // Constructor/destructor
-    Actor(class Game *game);
+    Actor(class Game* game);
     virtual ~Actor();
     // Update function called from Game (not overridable)
     void Update(float deltaTime);
@@ -22,13 +22,13 @@ public:
     void UpdateComponents(float deltaTime);
     // Any actor-specific update code (overridable)
     virtual void UpdateActor(float deltaTime);
-    
+
     // Getters/setters
     State GetState();
-    
+
     // Add/remove components
-    void AddComponent(class Component *component);
-    void RemoveComponent(class Component *component);
+    void AddComponent(class Component* component);
+    void RemoveComponent(class Component* component);
 
 private:
     // Actor's state
@@ -38,6 +38,6 @@ private:
     float mScale;      // Uniforms scale of actor (1.0f for 100%)
     float mRotation;   // Rotation angle (in radians)
     // Components held by this actor
-    std::vector<class Component *> mComponents;
-    class Game *mGame;
+    std::vector<class Component*> mComponents;
+    class Game* mGame;
 };
